@@ -1,0 +1,150 @@
+{
+  "model": {
+    "name": "gemini-2.5-pro",
+    "temperature": 0.3,
+    "max_output_tokens": 65000,
+    "top_p": 0.95,
+    "top_k": 40
+  },
+  "project": {
+    "name": "Database Schema Analysis",
+    "description": "Comprehensive database schema analysis and documentation",
+    "generated_by": "WTFK (What The Foreign Key)"
+  },
+  "paths": {
+    "context_dir": "context",
+    "diagrams_dir": "output/diagrams",
+    "output_dir": "output",
+    "schemas_dir": "schemas",
+    "prompts_dir": "prompts"
+  },
+  "analysis": {
+    "enable_context_generation": true,
+    "enable_ai_analysis": true,
+    "context_categories": [
+      "business_core",
+      "auth_security", 
+      "audit_logging",
+      "integration",
+      "configuration",
+      "temporary_cache"
+    ]
+  },
+  "context_generation": {
+    "max_displayed_items": 20,
+    "enable_ai_categorization": true,
+    "table_categorization_prompt": "prompts/table_categorization.txt",
+    "fallback_categorization": {
+      "auth_security": ["auth_", "user", "token", "permission", "session", "login", "password", "role"],
+      "audit_logging": ["log", "change", "history", "event", "track", "audit", "_log"],
+      "integration": ["webhook", "api", "external", "sync", "import", "export", "integration"],
+      "configuration": ["config", "setting", "parameter", "option", "lookup", "type", "status"],
+      "temporary_cache": ["temp", "cache", "pending", "queue", "tmp", "buffer"]
+    }
+  },
+  "visualizations": {
+    "enable_generation": true,
+    "max_graphs_per_section": 2,
+    "image_format": "png",
+    "image_quality": 300,
+    "figure_size": [12, 8],
+    "color_palette": "viridis",
+    "style": "whitegrid",
+    "graph_library": {
+      "foreign_key_network": "Network diagram showing table relationships and dependencies",
+      "table_category_breakdown": "Pie chart showing distribution of tables by functional category",
+      "table_size_distribution": "Histogram showing distribution of table sizes by column count",
+      "pii_sensitivity_heatmap": "Heatmap showing PII sensitivity levels across tables",
+      "data_type_distribution": "Bar chart showing distribution of column data types",
+      "performance_bottlenecks": "Horizontal bar chart showing tables with highest performance risk",
+      "relationship_intensity_heatmap": "Heatmap showing relationship density between table categories",
+      "index_coverage_analysis": "Chart showing index coverage on foreign key columns",
+      "module_dependency_graph": "Directed graph showing dependencies between application modules/apps",
+      "centrality_analysis_graph": "Network diagram with node sizing based on table centrality/importance",
+      "orphan_and_leaf_analysis": "Bar chart identifying orphan tables and leaf tables for cleanup",
+      "jsonb_usage_analysis": "Bar chart showing tables with JSONB columns indicating hidden complexity",
+      "denormalization_heatmap": "Heatmap showing duplicated fields across tables (PII denormalization)",
+      "junction_table_breakdown": "Bar chart listing all many-to-many relationship tables"
+    },
+    "section_mappings": {
+      "executive_summary": ["foreign_key_network", "table_category_breakdown", "performance_bottlenecks", "module_dependency_graph"],
+      "domain_analysis": ["table_category_breakdown", "relationship_intensity_heatmap", "centrality_analysis_graph"],
+      "performance": ["table_size_distribution", "index_coverage_analysis", "performance_bottlenecks"],
+      "security": ["pii_sensitivity_heatmap", "denormalization_heatmap"],
+      "pii_audit": ["pii_sensitivity_heatmap", "denormalization_heatmap"],
+      "technical_issues": ["foreign_key_network", "performance_bottlenecks", "orphan_and_leaf_analysis", "jsonb_usage_analysis"],
+      "integration": ["data_type_distribution", "foreign_key_network", "junction_table_breakdown"],
+      "architecture": ["module_dependency_graph", "centrality_analysis_graph", "junction_table_breakdown"]
+    }
+  },
+  "pdf_generation": {
+    "enable_generation": true,
+    "engine": "pandoc",
+    "style": "business",
+    "include_toc": true,
+    "toc_depth": 3,
+    "number_sections": true,
+    "highlight_style": "pygments",
+    "page_break_before": ["# Executive Summary", "# Domain Analysis", "# Performance Analysis", "# Security Analysis"],
+    "styles": {
+      "business": {
+        "description": "Professional business report style",
+        "geometry": "margin=0.75in",
+        "fontsize": "12pt",
+        "documentclass": "report",
+        "classoption": "oneside",
+        "colorlinks": true,
+        "linkcolor": "blue",
+        "urlcolor": "blue",
+        "toccolor": "black"
+      },
+      "executive": {
+        "description": "Executive summary style with larger fonts",
+        "geometry": "margin=1in",
+        "fontsize": "14pt",
+        "documentclass": "article",
+        "classoption": "onecolumn",
+        "colorlinks": true,
+        "linkcolor": "blue",
+        "urlcolor": "blue",
+        "toccolor": "black"
+      },
+      "technical": {
+        "description": "Technical documentation style",
+        "geometry": "margin=1in",
+        "fontsize": "11pt",
+        "documentclass": "article",
+        "classoption": "twoside",
+        "colorlinks": true,
+        "linkcolor": "red",
+        "urlcolor": "red",
+        "toccolor": "black"
+      },
+      "modern": {
+        "description": "Modern clean design",
+        "geometry": "margin=0.8in",
+        "fontsize": "11pt",
+        "documentclass": "article",
+        "classoption": "oneside",
+        "colorlinks": true,
+        "linkcolor": "teal",
+        "urlcolor": "teal",
+        "toccolor": "black"
+      },
+      "minimal": {
+        "description": "Clean minimal style",
+        "geometry": "margin=1.2in",
+        "fontsize": "12pt",
+        "documentclass": "article",
+        "classoption": "onecolumn",
+        "mainfont": "Times New Roman",
+        "sansfont": "Helvetica",
+        "monofont": "Courier",
+        "colorlinks": false,
+        "linkcolor": "black",
+        "urlcolor": "black",
+        "toccolor": "black"
+      }
+    }
+  }
+} 

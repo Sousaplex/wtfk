@@ -1,0 +1,243 @@
+You are a senior database architect and data analyst. Analyze the provided PostgreSQL database schema and create a comprehensive analysis report.
+
+## Pre-computed Statistics:
+{context_summary}
+
+## Schema to Analyze:
+{schema_content}
+
+## Analysis Requirements:
+
+**IMPORTANT**: Use the pre-computed statistics above for all numerical data (table counts, column counts, etc.). Do not manually count tables or columns from the schema - the statistics are already calculated for you.
+
+### 1. Executive Summary
+- Provide a high-level overview of the database purpose and domain
+- Identify the main business entities and their relationships
+- Use the pre-computed statistics to describe the scale and complexity of the system
+
+### 2. Domain Analysis
+- What business domain does this database serve?
+- What are the core business processes supported?
+- Identify key user types/roles in the system
+
+### 3. Table Categories & Purpose
+Group tables by functional areas and explain their purpose:
+- Core business entities
+- User management & authentication
+- Audit/logging tables
+- Configuration/lookup tables
+- Integration/external system tables
+
+### 4. Key Relationships & Data Flow
+- Identify the most important foreign key relationships
+- Map the primary data flow patterns
+- Highlight central hub tables that connect multiple entities
+- Identify any potential circular dependencies
+
+### 5. Data Architecture Patterns
+- Identify architectural patterns used (e.g., multi-tenancy, audit trails, soft deletes)
+- Note any polymorphic relationships
+- Identify lookup/reference data patterns
+- Check for temporal data patterns (created/modified timestamps)
+
+### 6. Integration Architecture & External Dependencies
+
+**External System Integrations**
+- Payment processors (Stripe, PayPal, etc.) - identify webhook handling and transaction sync
+- Identity verification services (credit bureaus, ID verification) - analyze data flow and storage
+- CRM/Marketing platforms (HubSpot, Salesforce) - evaluate bi-directional sync patterns
+- Property management systems - assess data exchange and synchronization strategies
+- Communication platforms (email, SMS) - identify delivery tracking and preference management
+
+**API & Webhook Infrastructure**
+- Webhook endpoint tables for receiving external events
+- API token management and authentication mechanisms
+- Rate limiting and throttling evidence in the schema
+- Idempotency key handling for ensuring operation safety
+- API audit logging and request/response tracking
+
+**Data Import/Export Mechanisms**
+- Bulk data loading patterns and staging tables
+- File processing workflows and status tracking
+- Data transformation and validation staging areas
+- Export queue management for large datasets
+- Backup and disaster recovery data flows
+
+**Integration Reliability Patterns**
+- Retry mechanism evidence (attempt counters, backoff strategies)
+- Circuit breaker patterns for external service failures
+- Dead letter queues for failed integrations
+- Compensation/rollback mechanisms for distributed transactions
+- Health check and monitoring integration points
+
+### 7. Data Quality & Constraints
+- Analyze constraint patterns (NOT NULL, UNIQUE, etc.)
+- Identify validation patterns
+- Note data quality enforcement mechanisms
+
+### 8. Performance Analysis & Optimization Opportunities
+
+**High-Volume Table Analysis**
+- Identify tables likely to experience rapid growth (transaction logs, events, user activity)
+- Analyze tables with the most foreign key relationships (potential join complexity)
+- Evaluate tables with wide column counts that may benefit from vertical partitioning
+
+**Query Performance Concerns**
+- Map expensive join patterns involving multiple large tables
+- Identify N+1 query risks from ORM usage patterns
+- Analyze deep hierarchy traversals that could benefit from materialized paths
+- Note tables missing indexes on frequently filtered/sorted columns
+
+**Indexing Strategy Assessment**
+- Verify all foreign key columns are properly indexed
+- Identify composite index opportunities for multi-column queries
+- Note potential for partial indexes on large tables with sparse data
+- Evaluate text search requirements for full-text indexing
+
+**Scalability Bottlenecks**
+- Identify sequential ID generation that might limit write throughput
+- Note tables that could benefit from horizontal partitioning (by date, tenant, etc.)
+- Analyze hot-spot tables that receive disproportionate write activity
+- Evaluate locking contention risks from frequently updated records
+
+### 9. Security Architecture & Compliance Framework
+
+**Access Control & Authentication**
+- User role hierarchy and permission inheritance patterns
+- Multi-factor authentication support and session management
+- API key/token management and rotation capabilities
+- Row-level security implementation evidence
+- Tenant isolation mechanisms in multi-tenant architectures
+
+**Data Protection & Encryption**
+- Identification of encrypted vs. plaintext sensitive fields
+- Tokenization patterns for payment card data
+- Hashing strategies for passwords and sensitive identifiers
+- Data masking or pseudonymization for non-production environments
+- Field-level encryption for highly sensitive data
+
+**Audit & Compliance Capabilities**
+- Comprehensive audit trail coverage across all critical operations
+- Data lineage tracking for regulatory reporting
+- User action logging with sufficient detail for forensics
+- Data retention policies and automated purging mechanisms
+- Compliance with specific regulations (GDPR, CCPA, SOX, PCI-DSS)
+
+**Security Monitoring & Incident Response**
+- Anomaly detection data collection points
+- Failed authentication attempt tracking
+- Suspicious activity pattern identification
+- Data breach detection and notification mechanisms
+- Security event correlation across multiple tables
+
+**Privacy & Data Subject Rights**
+- Right to access: ability to extract all user data
+- Right to rectification: data correction audit trails
+- Right to erasure: comprehensive data deletion capabilities
+- Data portability: structured export mechanisms
+- Consent management and preference tracking
+
+### 10. PII & Data Sensitivity Audit
+Conduct a comprehensive audit of personally identifiable information and sensitive data:
+
+**Level 1: Indirect or Linkable Identifiers**
+- IP addresses, device IDs, session tokens, user IDs
+- Geographic data (addresses, locations)
+- Behavioral data (activity logs, preferences)
+- Account identifiers, usernames, email addresses
+
+**Level 2: Direct Personal Identifiers** 
+- Full names, phone numbers, email addresses
+- Dates of birth, demographic information
+- Employment information, contact details
+- Government-issued IDs (driver's license numbers, passport numbers)
+
+**Level 3: Highly Sensitive & Financial PII**
+- Social Security Numbers (SSN/SIN), tax IDs
+- Credit card numbers, bank account information
+- Biometric data, health information
+- Criminal background check results
+- Credit reports and financial assessments
+
+For each level, identify:
+- Which tables contain this data
+- How the data is protected (encryption, access controls)
+- Data retention policies and deletion patterns
+- Cross-border data transfer implications
+
+### 11. Technical Issues & Architectural Recommendations
+
+Provide detailed analysis in the following categories:
+
+**A. Critical Performance Issues**
+- Tables with excessive foreign key relationships (>20 incoming FKs)
+- Missing indexes on foreign key columns and frequently queried fields
+- Tables with excessive column count (>50 columns) indicating possible decomposition needs
+- Query performance bottlenecks from complex join patterns
+- Large tables without proper archival strategies
+
+**B. Data Model & Design Issues**
+- Normalization problems (over-normalized or under-normalized structures)
+- Inconsistent naming conventions across tables/columns
+- Data type inefficiencies (inappropriate use of TEXT vs VARCHAR, etc.)
+- Missing constraints that could enforce business rules
+- Circular dependency risks and referential integrity concerns
+
+**C. Security & Compliance Gaps**
+- Sensitive data stored without apparent encryption
+- Audit trail gaps for critical business operations
+- Insufficient access control granularity
+- Missing data retention/deletion mechanisms for compliance
+- PII data without proper protection measures
+
+**D. Scalability & Maintenance Concerns**
+- Tables that will likely become bottlenecks under load
+- Architecture patterns that may not scale (polling vs. event-driven)
+- Missing partitioning strategies for time-series data
+- Inadequate soft-delete implementations
+- Complex polymorphic relationships that could be simplified
+
+**E. Integration & API Considerations**
+- External system dependencies that could fail
+- Missing idempotency patterns for API operations
+- Webhook/event handling without proper retry/failure mechanisms
+- Data synchronization challenges between systems
+
+### 11B. Development Team Action Plan
+
+Organize the above issues into a prioritized roadmap for development teams:
+
+**Immediate Actions (Weeks 1-4)**
+- Critical performance fixes that can be implemented quickly
+- Security vulnerabilities requiring immediate attention
+- Data corruption risks that need immediate mitigation
+
+**Short-term Improvements (Months 1-3)**
+- Index optimizations and query performance enhancements
+- Data model refinements that don't require major schema changes
+- Missing constraints and validation implementations
+- Basic monitoring and alerting setup
+
+**Medium-term Architecture Evolution (Months 3-12)**
+- Major refactoring opportunities for complex tables
+- Implementation of proper archival and partitioning strategies
+- Enhanced audit and compliance capabilities
+- API and integration pattern improvements
+
+**Long-term Strategic Initiatives (Year 1+)**
+- Complete system redesign recommendations
+- Migration to event-driven architectures where beneficial
+- Advanced security and encryption implementations
+- Cross-system data governance and lineage improvements
+
+For each recommendation, provide:
+- Estimated effort level (Low/Medium/High)
+- Business impact if not addressed
+- Potential risks of implementation
+- Dependencies on other improvements
+
+
+## Output Format:
+Provide your analysis as a well-structured markdown document with clear headings, bullet points, and code examples where relevant. Include specific table names and relationships in your analysis.
+
+Focus on actionable insights that would help developers, architects, and business stakeholders understand the system better. 

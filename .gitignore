@@ -1,0 +1,87 @@
+# WTFK (What The Foreign Key) - Generated Files and Working Directories
+
+# Working directories with generated content
+original/*
+!original/.gitkeep
+schemas/*
+!schemas/.gitkeep
+context/*
+!context/.gitkeep
+output/*
+!output/.gitkeep
+archive/*
+!archive/.gitkeep
+
+# Python environment and cache
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Environment variables
+.env
+.env.local
+.env.production
+.env.development
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Operating system files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+*.tmp.md
+
+# Archive directory - contains generated analyses that shouldn't be tracked
+# (archive/* pattern above handles contents, keeping directory structure)
+
+# Large original schema files (optional - uncomment if schemas are too large for git)
+# original/*.sql
+
+# Generated reports and PDFs
+*.pdf
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# Node modules (if any JavaScript tools are added)
+node_modules/
+
+# Python distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST 

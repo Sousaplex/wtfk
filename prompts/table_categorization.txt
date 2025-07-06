@@ -1,0 +1,33 @@
+As a database architect, analyze these database tables and categorize them into functional domains.
+
+Table Information:
+{table_info}
+
+Based on the table names, column names, and relationships, categorize each table into ONE of these categories:
+
+1. **business_core** - Main business entities and core domain objects
+2. **auth_security** - User authentication, authorization, permissions, security  
+3. **audit_logging** - Logging, auditing, tracking, history, events
+4. **integration** - External APIs, webhooks, imports, exports, third-party connections
+5. **configuration** - Settings, parameters, lookups, reference data, system configuration
+6. **user_management** - User profiles, preferences, personal data (distinct from auth)
+7. **content_media** - Files, images, documents, media, content management
+8. **financial_commerce** - Payments, transactions, billing, pricing, financial data
+9. **communication** - Messages, notifications, emails, communications  
+10. **analytics_reporting** - Analytics, reports, metrics, statistics, dashboards
+11. **workflow_process** - Workflows, processes, states, approvals, tasks
+
+Instructions:
+- Focus on the PRIMARY purpose of each table
+- Use table names, column names, and relationship patterns as clues
+- If uncertain about a table's purpose, categorize it as "business_core"
+- Consider the domain context - a "user" table could be auth_security OR user_management depending on its columns
+
+Return ONLY a JSON object with table names as keys and categories as values:
+{{
+  "table_name_1": "business_core",
+  "table_name_2": "auth_security",
+  "table_name_3": "financial_commerce"
+}}
+
+Do not include any explanatory text, just the JSON object. 
