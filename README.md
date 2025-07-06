@@ -68,7 +68,7 @@ schema/
 
 ├── archive/                    # Archived completed analyses
 │   ├── analysis_20241205_143022/ # Example timestamped archive
-│   └── proptech_analysis_v1/   # Example named archive
+│   └── ecommerce_analysis_v1/   # Example named archive
 ├── run_analysis.sh             # Main pipeline script
 ├── archive_analysis.sh         # Archive and cleanup script
 ├── settings.json               # Configuration parameters
@@ -275,7 +275,7 @@ The script will auto-detect and validate your schema file automatically.
 ```json
 {
   "table_categorization": {
-    "business_core": ["tenant", "landlord", "property", "lease"],
+    "business_core": ["customer", "user", "product", "order"],
     "auth_security": ["auth_", "user", "token", "permission"],
     "audit_logging": ["log", "change", "history", "event"]
   }

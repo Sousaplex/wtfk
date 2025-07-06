@@ -727,23 +727,20 @@ class DiagramGenerator:
                 probability = 0.0
                 
                 if field in ['first_name', 'last_name', 'email']:
-                    if any(word in table_lower for word in ['user', 'account', 'profile', 'tenant', 'landlord']):
+                    if any(word in table_lower for word in ['user', 'account', 'profile', 'customer', 'client']):
                         probability = 0.8
-                    elif any(word in table_lower for word in ['contact', 'person', 'customer']):
+                    elif any(word in table_lower for word in ['contact', 'person', 'member']):
                         probability = 0.9
                     elif 'auth' in table_lower:
                         probability = 0.6
-                
                 elif field in ['phone', 'address', 'city', 'state']:
                     if any(word in table_lower for word in ['address', 'contact', 'location', 'geo']):
                         probability = 0.9
-                    elif any(word in table_lower for word in ['user', 'profile', 'tenant', 'landlord']):
+                    elif any(word in table_lower for word in ['user', 'profile', 'customer', 'client']):
                         probability = 0.5
-                
                 elif field in ['created_at', 'updated_at']:
                     if 'log' not in table_lower and 'temp' not in table_lower:
                         probability = 0.7
-                
                 elif field == 'name':
                     if any(word in table_lower for word in ['product', 'service', 'category', 'group']):
                         probability = 0.8

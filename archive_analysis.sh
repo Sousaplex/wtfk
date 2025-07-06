@@ -50,7 +50,7 @@ Examples:
     $0
     
     # Archive with custom name
-    $0 proptech_analysis_v1
+    $0 ecommerce_analysis_v1
     
     # Archive but keep working files
     $0 --keep my_analysis

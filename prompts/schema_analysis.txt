@@ -46,7 +46,7 @@ Group tables by functional areas and explain their purpose:
 - Payment processors (Stripe, PayPal, etc.) - identify webhook handling and transaction sync
 - Identity verification services (credit bureaus, ID verification) - analyze data flow and storage
 - CRM/Marketing platforms (HubSpot, Salesforce) - evaluate bi-directional sync patterns
-- Property management systems - assess data exchange and synchronization strategies
+- Business management systems - assess data exchange and synchronization strategies
 - Communication platforms (email, SMS) - identify delivery tracking and preference management
 
 **API & Webhook Infrastructure**
