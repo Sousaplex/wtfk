@@ -4,6 +4,8 @@
 
 A comprehensive system for analyzing large SQL database schemas using AI-powered insights and intelligent visualizations. When you're staring at a massive schema wondering "what the foreign key is going on here?" - WTFK has the answers.
 
+Turns out your database schema has alot of signal for an LLM to help understand your app, and sometimes even your org.
+
 ## Quick Start
 
 **The easiest way to run the complete pipeline:**
@@ -215,7 +217,7 @@ The script will auto-detect and validate your schema file automatically.
 ## Key Features
 
 ### Schema Compression
-- **87% size reduction** while preserving all relationships
+- **Substantial size reduction** while preserving all relationships
 - Hierarchical format with explicit foreign key mappings
 - Maintains indexes, constraints, and structural integrity
 
@@ -249,7 +251,7 @@ The script will auto-detect and validate your schema file automatically.
 - **Identified**: "auth_user" as god object with 96 incoming foreign keys
 - **Categorized**: 180 business_core tables, 35 auth_security tables
 - **Flagged**: Performance bottlenecks in wide tables (100+ columns)
-- **Mapped**: PII sensitivity across functional areas
+- **Mapped**: PII & PHI sensitivity across functional areas
 
 ### Generated Visualizations
 - **Executive Summary**: Global connectivity maps and complexity rankings
@@ -327,7 +329,5 @@ python3 scripts/08_generate_pdf.py output/final_report.md --style minimal -o cus
 **⚙️ Customize Styles:**
 Edit the `pdf_generation.styles` section in `settings.json` to modify fonts, margins, colors, and LaTeX options for each style.
 
-## Advanced Usage
-
-### Custom Analysis Prompts
-Modify `
+**FUTURE PLANS**
+I'd like to include in the pipeline specific code scanning feature to tackle TypeORM and Django to infuse additional context into the process. Also looking into how to compress business logic in an LLM-friendly way to be analyzed as well in addition. That would help with the security analysis.
