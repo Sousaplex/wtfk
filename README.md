@@ -95,7 +95,7 @@ The pipeline is orchestrated by `cli.py` and consists of modular steps implement
 | 3 | `step_03_generate_context.py` | Generates statistics and categorizes tables using AI. | `context/*.json`, `logs/*.log` |
 | 4 | `step_04_analyze_schema.py` | Performs the main, comprehensive AI analysis of the schema. | `output/schema_analysis.md` |
 | 5 | `step_05_plan_visualizations.py` | Intelligently plans the most effective diagrams for the report. | `output/visualization_plan.json` |
-| 6 | `step_06_generate_diagrams.py` | Creates the actual PNG diagram files. | `output/diagrams/*.png` |
+| 6 | `step_06_generate_diagrams.py` | Creates interactive HTML diagrams using Plotly. | `output/diagrams/*.html` |
 | 7 | `step_07_generate_final_report.py` | Integrates diagrams and explanations into a final markdown report. | `output/final_report.md` |
 | 8 | `step_08_generate_html.py` | Converts the markdown report into a self-contained HTML file. | `output/final_report.html` |
 
