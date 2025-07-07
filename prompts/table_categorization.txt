@@ -1,33 +1,23 @@
-As a database architect, analyze these database tables and categorize them into functional domains.
+You are an expert database architect. Your task is to categorize a batch of database tables based on their names and column names.
 
-Table Information:
-{table_info}
+For each table in the provided batch, analyze its information and determine its single best functional category.
 
-Based on the table names, column names, and relationships, categorize each table into ONE of these categories:
+**Batch of Tables to Analyze:**
+{batch_info}
 
-1. **business_core** - Main business entities and core domain objects
-2. **auth_security** - User authentication, authorization, permissions, security  
-3. **audit_logging** - Logging, auditing, tracking, history, events
-4. **integration** - External APIs, webhooks, imports, exports, third-party connections
-5. **configuration** - Settings, parameters, lookups, reference data, system configuration
-6. **user_management** - User profiles, preferences, personal data (distinct from auth)
-7. **content_media** - Files, images, documents, media, content management
-8. **financial_commerce** - Payments, transactions, billing, pricing, financial data
-9. **communication** - Messages, notifications, emails, communications  
-10. **analytics_reporting** - Analytics, reports, metrics, statistics, dashboards
-11. **workflow_process** - Workflows, processes, states, approvals, tasks
+**Instructions:**
+1.  For each table, choose the single best category from the following list:
+    - `business_core`: Core transactional entities (e.g., users, products, orders).
+    - `auth_security`: User authentication, roles, permissions.
+    - `audit_logging`: History, logs, tracking changes.
+    - `integration`: Data from or for external systems (e.g., webhooks, API data).
+    - `configuration`: System settings, lookup tables, parameters.
+    - `user_management`: User profiles, settings, preferences.
+    - `content_media`: Storing files, images, documents.
+    - `financial_commerce`: Billing, subscriptions, payments.
+    - `communication`: Emails, notifications, messages.
+    - `analytics_reporting`: Data for reporting or BI.
+    - `workflow_process`: Job queues, temporary states, processing tasks.
+2.  Provide your answer as a single JSON object containing a list of all the categorized tables.
 
-Instructions:
-- Focus on the PRIMARY purpose of each table
-- Use table names, column names, and relationship patterns as clues
-- If uncertain about a table's purpose, categorize it as "business_core"
-- Consider the domain context - a "user" table could be auth_security OR user_management depending on its columns
-
-Return ONLY a JSON object with table names as keys and categories as values:
-{{
-  "table_name_1": "business_core",
-  "table_name_2": "auth_security",
-  "table_name_3": "financial_commerce"
-}}
-
-Do not include any explanatory text, just the JSON object. 
+{format_instructions}

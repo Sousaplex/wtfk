@@ -157,11 +157,13 @@ class VisualizationPlanner:
         prompt_file = f"{self.settings['paths'].get('prompts_dir', 'prompts')}/visualization_planning.txt"
         return self.load_prompt_template(prompt_file)
     
-    def save_prompt_log(self, prompt_content, output_dir):
+    def save_prompt_log(self, prompt_content):
         """Save the actual prompt used for debugging."""
         try:
+            log_dir = Path("logs")
+            log_dir.mkdir(exist_ok=True)
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            log_file = Path(output_dir) / f"visualization_prompt_log_{timestamp}.txt"
+            log_file = log_dir / f"visualization_prompt_log_{timestamp}.txt"
             
             with open(log_file, 'w', encoding='utf-8') as f:
                 f.write("# Visualization Planning Prompt Log\n")
@@ -230,8 +232,7 @@ class VisualizationPlanner:
         actual_prompt = prompt_template.format(**prompt_vars)
         
         # Save prompt log for debugging
-        output_dir = self.settings['paths'].get('output_dir', 'output')
-        self.save_prompt_log(actual_prompt, output_dir)
+        self.save_prompt_log(actual_prompt)
         
         chain = prompt_template | self.llm | StrOutputParser()
         
@@ -347,6 +348,45 @@ class VisualizationPlanner:
             sys.exit(1)
 
 
+def plan_visualizations(schema_file, output_file, settings_file="settings.json"):
+    """
+    High-level function to run the visualization planning pipeline.
+    Returns the path to the generated plan on success, None on failure.
+    """
+    schema_path = Path(schema_file)
+    if not schema_path.exists():
+        print(f"Error: Schema file '{schema_file}' not found.")
+        return None
+
+    print(f"Visualization Planner Configuration:")
+    print(f"  Schema file: {schema_path}")
+    print(f"  Output plan: {output_file}")
+    print(f"  Settings: {settings_file}")
+    print()
+
+    planner = VisualizationPlanner(settings_file=settings_file)
+
+    if not planner.settings['visualizations']['enable_generation']:
+        print("Visualizations are disabled in settings. Exiting.")
+        return None
+
+    context_data = planner.load_context_data(
+        planner.settings['paths']['context_dir'],
+        schema_file
+    )
+
+    if not context_data:
+        print("Error: No context data found. Please run 03_generate_context.py first.")
+        return None
+
+    plan = planner.generate_plan(context_data, schema_file)
+    planner.save_plan(plan, output_file)
+
+    print(f"\n✅ Visualization planning complete!")
+    print(f"Next step: python3 scripts/06_generate_diagrams.py --plan {output_file}")
+    return output_file
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Plan optimal visualizations for database schema analysis"
@@ -358,7 +398,7 @@ def main():
     parser.add_argument(
         "-o", "--output",
         help="Output plan file path",
-        default="visualization_plan.json"
+        default="output/visualization_plan.json"
     )
     parser.add_argument(
         "-s", "--settings",
@@ -368,45 +408,13 @@ def main():
     
     args = parser.parse_args()
     
-    # Validate input file
-    schema_path = Path(args.schema_file)
-    if not schema_path.exists():
-        print(f"Error: Schema file '{args.schema_file}' not found.")
+    # Ensure output directory exists
+    Path(args.output).parent.mkdir(parents=True, exist_ok=True)
+
+    if not plan_visualizations(args.schema_file, args.output, args.settings):
         sys.exit(1)
-    
-    print(f"Visualization Planner Configuration:")
-    print(f"  Schema file: {schema_path}")
-    print(f"  Output plan: {args.output}")
-    print(f"  Settings: {args.settings}")
-    print()
-    
-    # Initialize planner
-    planner = VisualizationPlanner(settings_file=args.settings)
-    
-    # Check if visualizations are enabled
-    if not planner.settings['visualizations']['enable_generation']:
-        print("Visualizations are disabled in settings. Exiting.")
-        sys.exit(0)
-    
-    # Load context data
-    context_data = planner.load_context_data(
-        planner.settings['paths']['context_dir'], 
-        args.schema_file
-    )
-    
-    if not context_data:
-        print("Error: No context data found. Please run 03_generate_context.py first.")
-        sys.exit(1)
-    
-    # Generate visualization plan
-    plan = planner.generate_plan(context_data, args.schema_file)
-    
-    # Save plan
-    planner.save_plan(plan, args.output)
-    
-    print(f"\n✅ Visualization planning complete!")
-    print(f"Next step: python3 scripts/06_generate_diagrams.py --plan {args.output}")
 
 
 if __name__ == "__main__":
-    main() 
+    main()
+ 

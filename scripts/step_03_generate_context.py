@@ -70,55 +70,43 @@ class SchemaContextGenerator:
         lines = schema_content.strip().split('\n')
         current_table = None
         
-        for line in lines:
-            original_line = line  # Keep original line with indentation
-            line = line.strip()
-            
-            # Skip empty lines and comments
-            if not line or line.startswith('--'):
+        for i, line in enumerate(lines):
+            try:
+                original_line = line
+                line = line.strip()
+                
+                if not line or line.startswith('--'):
+                    continue
+                
+                if line.endswith(':') and not original_line.startswith(' '):
+                    current_table = line[:-1]
+                    self.tables[current_table] = {
+                        'columns': [], 'primary_keys': [], 'foreign_keys': [],
+                        'unique_constraints': [], 'indexes': [], 'column_types': Counter(),
+                        'nullable_columns': 0, 'required_columns': 0
+                    }
+                    continue
+                
+                if current_table is None:
+                    continue
+                
+                if (original_line.startswith('  ') and ':' in line and 
+                    not any(line.startswith(p) for p in ['FK (', 'UNIQUE (', 'IDX (', 'PRIMARY KEY ('])):
+                    self._parse_column(line, current_table)
+                elif original_line.startswith('  FK ('):
+                    self._parse_foreign_key(line, current_table)
+                elif original_line.startswith('  UNIQUE ('):
+                    self._parse_unique_constraint(line, current_table)
+                elif original_line.startswith('  PRIMARY KEY ('):
+                    self._parse_primary_key(line, current_table)
+                elif original_line.startswith('  IDX ('):
+                    self._parse_index(line, current_table)
+            except Exception as e:
+                print(f"Error parsing line {i+1}: '{original_line.strip()}'")
+                print(f"  - Error: {e}")
+                print(f"  - Current table context: {current_table}")
+                # Continue to the next line to make it robust
                 continue
-            
-            # New table definition
-            if line.endswith(':') and not original_line.startswith(' '):
-                current_table = line[:-1]
-                self.tables[current_table] = {
-                    'columns': [],
-                    'primary_keys': [],
-                    'foreign_keys': [],
-                    'unique_constraints': [],
-                    'indexes': [],
-                    'column_types': Counter(),
-                    'nullable_columns': 0,
-                    'required_columns': 0
-                }
-                continue
-            
-            if current_table is None:
-                continue
-            
-            # Column definitions (including quoted column names)
-            if (original_line.startswith('  ') and ':' in line and 
-                not original_line.startswith('  FK') and 
-                not original_line.startswith('  UNIQUE') and 
-                not original_line.startswith('  IDX') and 
-                not original_line.startswith('  PRIMARY')):
-                self._parse_column(line, current_table)
-            
-            # Foreign key relationships
-            elif original_line.startswith('  FK ('):
-                self._parse_foreign_key(line, current_table)
-            
-            # Unique constraints
-            elif original_line.startswith('  UNIQUE ('):
-                self._parse_unique_constraint(line, current_table)
-            
-            # Primary key constraints
-            elif original_line.startswith('  PRIMARY KEY ('):
-                self._parse_primary_key(line, current_table)
-            
-            # Indexes
-            elif original_line.startswith('  IDX ('):
-                self._parse_index(line, current_table)
     
     def _parse_column(self, line, table_name):
         """Parse a column definition."""
@@ -310,125 +298,116 @@ class SchemaContextGenerator:
             return self._fallback_categorize_tables()
     
     def _ai_categorize_tables(self):
-        """Use AI to intelligently categorize tables based on their structure and names."""
+        """Use AI to intelligently categorize tables in parallel batches."""
         try:
-            # Import LangChain components
             from langchain_google_genai import ChatGoogleGenerativeAI
             from langchain.prompts import PromptTemplate
-            from langchain.schema import StrOutputParser
+            from langchain.output_parsers import PydanticOutputParser
+            from pydantic import BaseModel, Field
             import os
             from dotenv import load_dotenv
-            
+            from concurrent.futures import ThreadPoolExecutor, as_completed
+            from tqdm import tqdm
+            import threading
+            from typing import List
+
             load_dotenv()
             api_key = os.getenv('GOOGLE_API_KEY')
             
             if not api_key:
                 print("Warning: No Google API key found. Using fallback categorization.")
                 return self._fallback_categorize_tables()
+
+            # Pydantic model for a single table's categorization
+            class TableCategory(BaseModel):
+                table_name: str = Field(description="The name of the table being categorized.")
+                category: str = Field(description="The single best functional category for the table.")
+
+            # Pydantic model for the LLM's response, which is a list of categorizations
+            class CategorizationList(BaseModel):
+                categorizations: List[TableCategory] = Field(description="A list of table categorizations.")
+
+            parser = PydanticOutputParser(pydantic_object=CategorizationList)
+            llm = ChatGoogleGenerativeAI(model="gemini-2.5-pro", google_api_key=api_key, temperature=0.1)
             
-            # Initialize LLM
-            llm = ChatGoogleGenerativeAI(
-                model="gemini-2.5-pro",
-                google_api_key=api_key,
-                temperature=0.1,
-                max_output_tokens=4000
-            )
-            
-            # Prepare table information for AI analysis
-            table_info = []
-            for name, table in self.tables.items():
-                # Get a sample of column names to understand table purpose
-                column_sample = table['columns'][:10]  # First 10 columns
-                fk_count = len(table['foreign_keys'])
-                
-                table_info.append({
-                    'name': name,
-                    'columns': column_sample,
-                    'column_count': len(table['columns']),
-                    'foreign_key_count': fk_count
-                })
-            
-            # Load prompt from file
             prompt_file = self.settings['context_generation']['table_categorization_prompt']
-            try:
-                with open(prompt_file, 'r', encoding='utf-8') as f:
-                    prompt_template = f.read()
-            except FileNotFoundError:
-                print(f"Warning: Prompt file '{prompt_file}' not found. Using fallback categorization.")
-                return self._fallback_categorize_tables()
-            except Exception as e:
-                print(f"Warning: Failed to load prompt file '{prompt_file}': {e}. Using fallback categorization.")
-                return self._fallback_categorize_tables()
-            
-            # Create prompt for AI categorization
+            with open(prompt_file, 'r', encoding='utf-8') as f:
+                prompt_template_str = f.read()
+
             prompt = PromptTemplate(
-                input_variables=["table_info"],
-                template=prompt_template
+                template=prompt_template_str,
+                input_variables=["batch_info"],
+                partial_variables={"format_instructions": parser.get_format_instructions()}
             )
             
-            # Get AI categorization
-            chain = prompt | llm | StrOutputParser()
+            chain = prompt | llm
+
+            print("🤖 Using AI to categorize tables in parallel batches...")
             
-            print("🤖 Using AI to categorize tables by domain...")
-            table_info_str = "\n".join([
-                f"- {t['name']}: {t['column_count']} columns, {t['foreign_key_count']} FKs, sample columns: {', '.join(t['columns'][:5])}"
-                for t in table_info[:50]  # Limit to first 50 tables to avoid token limits
-            ])
+            log_path = Path("logs") / f"table_categorization_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+            log_lock = threading.Lock()
+            categorized_tables = defaultdict(list)
             
-            result = chain.invoke({"table_info": table_info_str})
-            
-            # Parse AI result
-            import json
-            try:
-                # Extract JSON from the result
-                if '```json' in result:
-                    json_str = result.split('```json')[1].split('```')[0].strip()
-                elif '{' in result and '}' in result:
-                    # Find the JSON object in the response
-                    start = result.find('{')
-                    end = result.rfind('}') + 1
-                    json_str = result[start:end]
-                else:
-                    raise ValueError("No JSON found in AI response")
+            # Create batches of 5 tables
+            table_items = list(self.tables.items())
+            batch_size = 5
+            batches = [table_items[i:i + batch_size] for i in range(0, len(table_items), batch_size)]
+
+            def categorize_batch(batch):
+                batch_info_str = ""
+                for name, table in batch:
+                    all_columns = ", ".join(table['columns'])
+                    batch_info_str += f"Table Name: {name}\nColumns: {all_columns}\n\n"
                 
-                ai_categories = json.loads(json_str)
+                raw_response = ""
+                error_message = ""
+                parsed_results = []
+
+                try:
+                    response_obj = chain.invoke({"batch_info": batch_info_str})
+                    raw_response = response_obj.content if hasattr(response_obj, 'content') else str(response_obj)
+                    parsed_obj = parser.parse(raw_response)
+                    parsed_results = parsed_obj.categorizations
+                except Exception as e:
+                    error_message = str(e)
                 
-                # Organize by category
-                categories = {}
-                available_categories = [
-                    'business_core', 'auth_security', 'audit_logging', 'integration',
-                    'configuration', 'user_management', 'content_media', 'financial_commerce',
-                    'communication', 'analytics_reporting', 'workflow_process'
-                ]
-                
-                for category in available_categories:
-                    categories[category] = []
-                
-                # Assign tables to categories
-                for table_name in self.tables.keys():
-                    if table_name in ai_categories:
-                        category = ai_categories[table_name]
-                        if category in categories:
-                            categories[category].append(table_name)
+                log_entry = (
+                    f"--- Batch ---\n"
+                    f"Tables Sent:\n{batch_info_str}"
+                    f"LLM Raw Response:\n{raw_response}\n"
+                    f"Status: {'SUCCESS' if not error_message else 'FAIL'}\n"
+                    f"Error: {error_message if error_message else 'None'}\n"
+                    f"---------------------------------\n\n"
+                )
+                return parsed_results, log_entry
+
+            max_workers = self.settings.get("performance", {}).get("max_workers_categorization", 10)
+            with open(log_path, 'w', encoding='utf-8') as log_file:
+                with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                    futures = {executor.submit(categorize_batch, batch): batch for batch in batches}
+                    
+                    for future in tqdm(as_completed(futures), total=len(batches), desc="Categorizing Batches"):
+                        results, log_entry = future.result()
+                        with log_lock:
+                            log_file.write(log_entry)
+                        
+                        if results:
+                            for item in results:
+                                categorized_tables[item.category].append(item.table_name)
                         else:
-                            categories['business_core'].append(table_name)
-                    else:
-                        categories['business_core'].append(table_name)
-                
-                print(f"✅ AI categorized {len(self.tables)} tables into {len([c for c in categories.values() if c])} domain categories")
-                return categories
-                
-            except (json.JSONDecodeError, ValueError, KeyError) as e:
-                print(f"Warning: Failed to parse AI categorization result: {e}")
-                print("Falling back to pattern-based categorization.")
-                return self._fallback_categorize_tables()
+                            # Fallback for a failed batch
+                            batch = futures[future]
+                            for name, _ in batch:
+                                categorized_tables['business_core'].append(name)
+
+
+            print(f"✅ AI categorization complete. See full log at: {log_path}")
             
-        except ImportError:
-            print("Warning: LangChain not available. Using fallback categorization.")
-            return self._fallback_categorize_tables()
+            return dict(categorized_tables)
+
         except Exception as e:
-            print(f"Warning: AI categorization failed: {e}")
-            print("Using fallback categorization.")
+            print(f"Warning: AI categorization failed entirely: {e}")
+            print("Using fallback categorization for all tables.")
             return self._fallback_categorize_tables()
     
     def _fallback_categorize_tables(self):
@@ -469,7 +448,7 @@ class SchemaContextGenerator:
         context_data = {
             'metadata': {
                 'generated_at': datetime.now().isoformat(),
-                'source_schema': schema_file_name,
+                'source_schema': str(schema_file_name),
                 'generator_version': '1.0.0'
             },
             'statistics': self.statistics,
@@ -532,6 +511,50 @@ class SchemaContextGenerator:
         return '\n'.join(summary)
 
 
+def generate_context(schema_file, output_dir, settings_file="settings.json", verbose=False):
+    """
+    Generates context and statistics from a compressed schema file.
+    Returns (True, context_file, stats_file) on success, (False, None, None) on failure.
+    """
+    schema_path = Path(schema_file)
+    if not schema_path.exists():
+        print(f"Error: Schema file '{schema_file}' not found.")
+        return False, None, None
+
+    print(f"Generating context from: {schema_path}")
+    print(f"Output directory: {output_dir}")
+    print()
+
+    try:
+        with open(schema_path, 'r', encoding='utf-8') as f:
+            schema_content = f.read()
+    except Exception as e:
+        print(f"Error reading schema file: {e}")
+        return False, None, None
+
+    generator = SchemaContextGenerator(settings_file=settings_file)
+    generator.parse_compressed_schema(schema_content)
+    generator.generate_statistics()
+
+    context_file, stats_file = generator.save_context(output_dir, schema_file)
+
+    print(f"Context generated successfully!")
+    print(f"- Main context: {context_file}")
+    print(f"- Statistics: {stats_file}")
+    print()
+
+    if verbose:
+        print("=== SCHEMA STATISTICS ===")
+        print(generator.generate_summary_text())
+        print()
+    else:
+        stats = generator.statistics
+        print(f"Summary: {stats['table_count']} tables, {stats['total_columns']} columns, {stats['total_foreign_keys']} relationships")
+
+    print("Context files ready for AI analysis!")
+    return True, context_file, stats_file
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Generate context and statistics from compressed PostgreSQL schema"
@@ -558,47 +581,9 @@ def main():
     
     args = parser.parse_args()
     
-    # Validate input file
-    schema_path = Path(args.schema_file)
-    if not schema_path.exists():
-        print(f"Error: Schema file '{args.schema_file}' not found.")
+    success, _, _ = generate_context(args.schema_file, args.output, args.settings, args.verbose)
+    if not success:
         sys.exit(1)
-    
-    print(f"Generating context from: {schema_path}")
-    print(f"Output directory: {args.output}")
-    print()
-    
-    # Load and parse schema
-    try:
-        with open(schema_path, 'r', encoding='utf-8') as f:
-            schema_content = f.read()
-    except Exception as e:
-        print(f"Error reading schema file: {e}")
-        sys.exit(1)
-    
-    # Generate context
-    generator = SchemaContextGenerator(settings_file=args.settings)
-    generator.parse_compressed_schema(schema_content)
-    generator.generate_statistics()
-    
-    # Save context files
-    context_file, stats_file = generator.save_context(args.output, args.schema_file)
-    
-    print(f"Context generated successfully!")
-    print(f"- Main context: {context_file}")
-    print(f"- Statistics: {stats_file}")
-    print()
-    
-    # Display summary
-    if args.verbose:
-        print("=== SCHEMA STATISTICS ===")
-        print(generator.generate_summary_text())
-        print()
-    else:
-        stats = generator.statistics
-        print(f"Summary: {stats['table_count']} tables, {stats['total_columns']} columns, {stats['total_foreign_keys']} relationships")
-    
-    print("Context files ready for AI analysis!")
 
 
 if __name__ == "__main__":

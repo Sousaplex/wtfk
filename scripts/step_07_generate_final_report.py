@@ -158,94 +158,92 @@ def match_diagrams_to_sections(sections: List[Dict], viz_plan: Dict, generation_
     
     return section_diagrams
 
-def generate_diagram_explanation(llm, diagram: Dict, context: Dict) -> str:
-    """Generate contextual explanation for a diagram using LLM."""
-    prompt = f"""
-As a database architect, provide a concise but insightful explanation for this visualization:
-
-**Diagram Details:**
-- Type: {diagram.get('graph_type', 'Unknown')}
-- Title: {diagram.get('title', 'Untitled')}
-- Description: {diagram.get('description', 'No description')}
-- Section: {diagram.get('target_section', 'Unknown')}
-
-**Schema Context:**
-- Total Tables: {context.get('total_tables', 'Unknown')}
-- Total Columns: {context.get('total_columns', 'Unknown')}
-- Foreign Key Relationships: {context.get('total_foreign_keys', 'Unknown')}
-
-**Instructions:**
-1. Write 2-3 paragraphs explaining what this diagram reveals about the database schema
-2. Focus on actionable insights and architectural implications
-3. Highlight any patterns, risks, or opportunities the visualization exposes
-4. Use professional, technical language appropriate for database architects
-5. Do NOT repeat the diagram title or basic description
-6. Start directly with insights, not "This diagram shows..."
-
-**Key Insights:**
-"""
+def generate_diagram_explanation(llm, diagram: Dict, context: Dict, settings: Dict) -> str:
+    """Generate contextual explanation for a diagram using a template."""
     
+    data_focus = diagram.get('data_focus', '')
+    relevant_data = "No specific data sample provided."
+    if data_focus and 'summary_stats' in context:
+        stats = context['summary_stats']
+        if data_focus in stats:
+            data_sample = stats[data_focus]
+            if isinstance(data_sample, list):
+                relevant_data = ", ".join([f"{item[0]} ({item[1]})" for item in data_sample[:5]])
+            elif isinstance(data_sample, dict):
+                relevant_data = ", ".join([f"{k}: {v}" for k, v in list(data_sample.items())[:5]])
+
     try:
+        prompts_dir = settings.get("paths", {}).get("prompts_dir", "prompts")
+        prompt_path = Path(prompts_dir) / "diagram_explanation.txt"
+        with open(prompt_path, 'r', encoding='utf-8') as f:
+            template_content = f.read()
+
+        prompt = template_content.format(
+            current_date=datetime.now().strftime('%B %d, %Y'),
+            diagram_title=diagram.get('title', 'Untitled'),
+            diagram_type=diagram.get('graph_type', 'Unknown'),
+            target_section=diagram.get('target_section', 'General Analysis'),
+            relevant_data=relevant_data
+        )
+        
         response = llm.invoke(prompt)
-        # Handle LangChain AIMessage response
-        if hasattr(response, 'content'):
-            return response.content.strip()
-        else:
-            return str(response).strip()
+        return response.content.strip() if hasattr(response, 'content') else str(response).strip()
+
     except Exception as e:
         print(f"Warning: Failed to generate explanation for {diagram.get('title', 'diagram')}: {e}")
         return f"This {diagram.get('graph_type', 'visualization')} provides insights into the {diagram.get('target_section', 'database schema')} structure and relationships."
 
 def insert_diagrams_into_section(section_content: str, diagrams: List[Dict], explanations: Dict) -> str:
-    """Insert diagrams and explanations into a section's content."""
+    """Insert interactive diagrams and explanations into a section's content."""
     if not diagrams:
         return section_content
     
-    # Insert diagrams at the end of the section, before any subsections
     lines = section_content.split('\n')
     insertion_point = len(lines)
     
-    # Find the last content line before any subsections
     for i, line in enumerate(lines):
-        if re.match(r'^#{2,6}\s+', line) and i > 0:  # Found a subsection
+        if re.match(r'^#{2,6}\s+', line) and i > 0:
             insertion_point = i
             break
     
-    # Build diagram insertions
     diagram_content = []
     for diagram in diagrams:
-        filename = diagram.get('filename', '')
+        # The file_path from the report now includes the .html extension
+        filename = os.path.basename(diagram.get('file_path', ''))
         title = diagram.get('title', 'Visualization')
         explanation = explanations.get(filename, '')
         
-        diagram_content.extend([
-            '',
-            f'### {title}',
-            '',
-            f'![{title}](diagrams/{filename})',
-            '',
-            explanation,
-            ''
-        ])
+        if filename:
+            diagram_content.extend([
+                '',
+                f'### {title}',
+                '',
+                f'<iframe src="diagrams/{filename}" width="100%" height="500px" style="border:none; background: #f8f9fa; border-radius: 8px;"></iframe>',
+                '',
+                explanation,
+                ''
+            ])
     
-    # Insert diagrams into the content
     result_lines = lines[:insertion_point] + diagram_content + lines[insertion_point:]
     return '\n'.join(result_lines)
 
-def generate_final_report(settings: Dict, api_key: str, skip_explanations: bool = False):
-    """Generate the final comprehensive report with integrated diagrams."""
+def generate_final_report_with_diagrams(settings_file=None, api_key=None, skip_explanations=False):
+    """
+    High-level function to generate the final comprehensive report with integrated diagrams.
+    Returns True on success, False on failure.
+    """
     print("🔄 Starting final report generation...")
+    
+    settings = load_settings(settings_file)
     
     # Load required files
     try:
-        # Find the analysis file (handles timestamped filenames)
         import glob
-        analysis_files = glob.glob('output/schema_analysis*.md')
+        analysis_files = glob.glob(f"{settings['paths']['output_dir']}/schema_analysis*.md")
         if not analysis_files:
             print("❌ Error: No schema analysis file found. Run analysis first.")
             return False
         
-        # Use the most recent file if multiple exist
         analysis_file = max(analysis_files, key=os.path.getmtime)
         with open(analysis_file, 'r') as f:
             analysis_content = f.read()
@@ -255,30 +253,29 @@ def generate_final_report(settings: Dict, api_key: str, skip_explanations: bool 
         return False
     
     try:
-        with open('output/visualization_plan.json', 'r') as f:
+        plan_path = f"{settings['paths']['output_dir']}/visualization_plan.json"
+        with open(plan_path, 'r') as f:
             viz_plan = json.load(f)
         print("✓ Loaded visualization plan")
     except FileNotFoundError:
-        print("❌ Error: visualization_plan.json not found. Run visualization planning first.")
+        print(f"❌ Error: {plan_path} not found. Run visualization planning first.")
         return False
     
     try:
-        with open('output/generation_report.json', 'r') as f:
+        report_path = f"{settings['paths']['output_dir']}/generation_report.json"
+        with open(report_path, 'r') as f:
             generation_report = json.load(f)
         print("✓ Loaded generation report")
     except FileNotFoundError:
-        print("❌ Error: generation_report.json not found. Run diagram generation first.")
+        print(f"❌ Error: {report_path} not found. Run diagram generation first.")
         return False
     
     try:
-        # Find the context file (handles timestamped filenames)
-        import glob
-        context_files = glob.glob('context/*_context.json')
+        context_files = glob.glob(f"{settings['paths']['context_dir']}/*_context.json")
         if not context_files:
             print("❌ Error: No context file found. Run context generation first.")
             return False
         
-        # Use the most recent file if multiple exist
         context_file = max(context_files, key=os.path.getmtime)
         with open(context_file, 'r') as f:
             context = json.load(f)
@@ -287,71 +284,49 @@ def generate_final_report(settings: Dict, api_key: str, skip_explanations: bool 
         print(f"❌ Error loading context data: {e}")
         return False
     
-    # Setup LLM (only if not skipping explanations)
+    llm = None
     if not skip_explanations:
-        llm = setup_gemini(api_key, settings.get('model', {}))
-        print("✓ Initialized Gemini model")
+        effective_api_key = api_key or os.getenv('GOOGLE_API_KEY')
+        if not effective_api_key:
+            print("Warning: No API key. Skipping diagram explanations.")
+            skip_explanations = True
+        else:
+            llm = setup_gemini(effective_api_key, settings.get('model', {}))
+            print("✓ Initialized Gemini model")
     else:
-        llm = None
         print("✓ Skipping LLM initialization (explanations disabled)")
-    
-    # Parse markdown sections
+
     sections = parse_markdown_sections(analysis_content)
     print(f"✓ Parsed {len(sections)} sections from analysis")
     
-    # Match diagrams to sections
     section_diagrams = match_diagrams_to_sections(sections, viz_plan, generation_report)
     total_diagrams = sum(len(diagrams) for diagrams in section_diagrams.values())
     print(f"✓ Matched {total_diagrams} diagrams to sections")
     
-    # Generate explanations for all diagrams
+    # Generate explanations for all diagrams in parallel
     print("🔄 Generating diagram explanations...")
     explanations = {}
-    
-    if not skip_explanations and total_diagrams > 0:
-        # Collect all diagrams for parallel processing
-        all_diagrams = []
-        for diagrams in section_diagrams.values():
-            for diagram in diagrams:
-                all_diagrams.append(diagram)
-        
-        # Generate explanations in parallel
+    all_diagrams = [d for diagrams in section_diagrams.values() for d in diagrams]
+
+    if not skip_explanations and total_diagrams > 0 and llm:
         from concurrent.futures import ThreadPoolExecutor, as_completed
-        import threading
-        
-        def generate_single_explanation(diagram_info, diagram_index):
-            """Generate explanation for a single diagram."""
-            filename = diagram_info.get('filename', '')
-            try:
-                print(f"  📊 Generating explanation for {filename} ({diagram_index}/{len(all_diagrams)})")
-                explanation = generate_diagram_explanation(llm, diagram_info, context)
-                return filename, explanation
-            except Exception as e:
-                print(f"  ❌ Failed to generate explanation for {filename}: {e}")
-                return filename, f"This {diagram_info.get('graph_type', 'visualization')} provides insights into the {diagram_info.get('target_section', 'database schema')} structure and relationships."
-        
-        # Use ThreadPoolExecutor for parallel processing
-        max_workers = min(4, len(all_diagrams))  # Limit to 4 concurrent requests
+        from tqdm import tqdm
+
+        max_workers = settings.get("performance", {}).get("max_workers_explanations", 5)
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            # Submit all tasks
-            future_to_diagram = {
-                executor.submit(generate_single_explanation, diagram, i+1): diagram 
-                for i, diagram in enumerate(all_diagrams)
-            }
+            future_to_diagram = {executor.submit(generate_diagram_explanation, llm, diagram, context, settings): diagram for diagram in all_diagrams}
             
-            # Collect results as they complete
-            for future in as_completed(future_to_diagram):
-                filename, explanation = future.result()
-                explanations[filename] = explanation
+            for future in tqdm(as_completed(future_to_diagram), total=len(all_diagrams), desc="Generating Explanations"):
+                diagram = future_to_diagram[future]
+                try:
+                    explanation = future.result()
+                    explanations[diagram.get('filename')] = explanation
+                except Exception as exc:
+                    print(f"'{diagram.get('title')}' generated an exception: {exc}")
+                    explanations[diagram.get('filename')] = "Error generating explanation."
     else:
-        # Use placeholder explanations
-        diagram_count = 0
-        for diagrams in section_diagrams.values():
-            for diagram in diagrams:
-                diagram_count += 1
-                filename = diagram.get('filename', '')
-                print(f"  📊 Using placeholder explanation for {filename} ({diagram_count}/{total_diagrams})")
-                explanations[filename] = f"This {diagram.get('graph_type', 'visualization')} provides insights into the {diagram.get('target_section', 'database schema')} structure and relationships."
+        for diagram in all_diagrams:
+            explanations[diagram.get('filename')] = "AI explanation generation was skipped."
     
     # Build the final report
     print("🔄 Building final report...")
@@ -368,26 +343,19 @@ def generate_final_report(settings: Dict, api_key: str, skip_explanations: bool 
         else:
             final_content.append(section['content'])
     
-    # Add metadata header
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     generated_by = settings.get('project', {}).get('generated_by', 'WTFK (What The Foreign Key)')
-    header = f"""<!-- Generated by {generated_by} Pipeline -->
-<!-- Timestamp: {timestamp} -->
-<!-- Diagrams: {total_diagrams} visualizations integrated -->
-
-"""
+    header = f"<!-- Generated by {generated_by} Pipeline -->\n<!-- Timestamp: {timestamp} -->\n<!-- Diagrams: {total_diagrams} visualizations integrated -->\n\n"
     
     final_report = header + '\n'.join(final_content)
     
-    # Save the final report
-    output_path = 'output/final_report.md'
+    output_path = Path(settings['paths']['output_dir']) / 'final_report.md'
     with open(output_path, 'w') as f:
         f.write(final_report)
     
-    # Generate summary
     original_size = len(analysis_content)
     final_size = len(final_report)
-    enhancement_ratio = (final_size / original_size) * 100
+    enhancement_ratio = (final_size / original_size) * 100 if original_size > 0 else 0
     
     print(f"✅ Final report generated successfully!")
     print(f"📄 Output: {output_path}")
@@ -395,6 +363,7 @@ def generate_final_report(settings: Dict, api_key: str, skip_explanations: bool 
     print(f"🖼️  Integrated diagrams: {total_diagrams}")
     
     return True
+
 
 def main():
     """Main execution function."""
@@ -406,35 +375,22 @@ def main():
     
     args = parser.parse_args()
     
-    # Load settings
-    settings = load_settings(args.settings)
+    api_key = args.api_key or os.getenv('GOOGLE_API_KEY')
+    if not args.skip_explanations and not api_key:
+        try:
+            from dotenv import load_dotenv
+            load_dotenv()
+            api_key = os.getenv('GOOGLE_API_KEY')
+        except ImportError:
+            pass
+
+    if not args.skip_explanations and not api_key:
+        print("❌ Error: Google API key not found.")
+        sys.exit(1)
     
-    # Get API key (only if not skipping explanations)
-    api_key = None
-    if not args.skip_explanations:
-        api_key = args.api_key or os.getenv('GOOGLE_API_KEY')
-        if not api_key:
-            try:
-                with open('.env', 'r') as f:
-                    for line in f:
-                        if line.startswith('GOOGLE_API_KEY='):
-                            api_key = line.split('=', 1)[1].strip()
-                            break
-            except FileNotFoundError:
-                pass
-        
-        if not api_key:
-            print("❌ Error: Google API key not found.")
-            print("Set GOOGLE_API_KEY environment variable, create .env file, or use --api-key parameter")
-            print("Or use --skip-explanations for testing without AI-generated explanations")
-            sys.exit(1)
-    
-    # Create output directory if it doesn't exist
     os.makedirs('output', exist_ok=True)
     
-    # Generate the final report
-    success = generate_final_report(settings, api_key, skip_explanations=args.skip_explanations)
-    if not success:
+    if not generate_final_report_with_diagrams(args.settings, api_key, args.skip_explanations):
         sys.exit(1)
 
 if __name__ == "__main__":

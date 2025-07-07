@@ -228,6 +228,18 @@ create_archive() {
         fi
     fi
     
+    # Archive logs
+    if [[ -d "logs" ]]; then
+        print_status "Archiving logs..."
+        mkdir -p "$archive_dir/logs"
+        cp logs/* "$archive_dir/logs/" 2>/dev/null || true
+        
+        local log_files=$(find logs -type f 2>/dev/null | wc -l)
+        if [[ $log_files -gt 0 ]]; then
+            print_success "Archived $log_files log files"
+        fi
+    fi
+    
     # Archive configuration used
     if [[ -f "settings.json" ]]; then
         print_status "Archiving configuration..."
@@ -365,6 +377,12 @@ EOF
         if [[ -d "context" ]]; then
             rm -rf context/*
             print_success "Cleaned context/"
+        fi
+        
+        # Clean logs directory
+        if [[ -d "logs" ]]; then
+            rm -rf logs/*
+            print_success "Cleaned logs/"
         fi
         
         print_success "Working files cleaned"

@@ -11,6 +11,8 @@ output/*
 !output/.gitkeep
 archive/*
 !archive/.gitkeep
+logs/*
+!logs/.gitkeep
 
 # Python environment and cache
 .venv/

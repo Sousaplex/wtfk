@@ -1,0 +1,23 @@
+You are a senior data architect writing a technical analysis report. Your task is to provide a concise, insightful explanation for the following data visualization.
+
+**Analysis Date:** {current_date}
+
+**Diagram Details:**
+- Title: {diagram_title}
+- Type: {diagram_type}
+- Analysis Section: {target_section}
+
+**Relevant Data Sample:**
+{relevant_data}
+
+**Instructions:**
+1.  **Do not state the obvious.** Avoid sentences like "This diagram shows..." or "The chart illustrates...".
+2.  **Provide immediate insights.** Start directly with the architectural implications or the key takeaways revealed by the visualization.
+3.  **Focus on "So What?".** Explain *why* this visualization is important. What risks, opportunities, or architectural patterns does it expose?
+4.  **Keep it concise:** 2-3 paragraphs is ideal.
+5.  Use professional, technical language suitable for an audience of developers and architects.
+
+**Example Insight:**
+"This visualization immediately flags a high degree of coupling between the 'Billing' and 'User Management' domains, suggesting that the schema lacks clear bounded contexts. This tight coupling presents a significant risk for future development, as changes to user authentication will likely require corresponding changes and deployments in the billing system."
+
+**Begin your explanation now:**

@@ -21,10 +21,12 @@ SKIP_ANALYSIS=false
 SKIP_VISUALIZATIONS=false
 SKIP_DIAGRAMS=false
 SKIP_FINAL_REPORT=false
+SKIP_HTML=false
 SKIP_PDF=false
-PDF_STYLE=""
+GENERATE_PDF=false
 VERBOSE=false
 SETTINGS_FILE="settings.json"
+FRAMEWORKS=()
 
 # Function to print colored output
 print_status() {
@@ -43,6 +45,23 @@ print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
+# Function to list available compliance frameworks
+list_frameworks() {
+    print_status "Available compliance frameworks:"
+    local compliance_dir="compliance"
+    if [[ -d "$compliance_dir" ]]; then
+        for file in "$compliance_dir"/*.md; do
+            if [[ -f "$file" ]]; then
+                local framework_name=$(basename "$file" .md)
+                echo "  - $framework_name"
+            fi
+        done
+    else
+        print_warning "Compliance directory not found at: $compliance_dir"
+    fi
+    exit 0
+}
+
 # Function to show usage
 show_usage() {
     cat << EOF
@@ -59,6 +78,10 @@ Options:
     -v, --verbose           Enable verbose output
     -s, --settings FILE     Path to settings.json file (default: settings.json)
     
+    Compliance Analysis:
+    --frameworks f1 f2...   Space-separated list of compliance frameworks to analyze
+    --list-frameworks       List available compliance frameworks and exit
+
     Pipeline Control:
     --skip-extract          Skip schema extraction (use existing schema_only.sql)
     --skip-compress         Skip schema compression (use existing schema_compressed.txt)
@@ -67,8 +90,9 @@ Options:
     --skip-visualizations   Skip visualization planning
     --skip-diagrams         Skip diagram generation
     --skip-final-report     Skip final report generation
-    --skip-pdf              Skip PDF generation
-    --pdf-style STYLE       PDF style (business, executive, technical, modern, minimal)
+    --skip-html             Skip HTML generation
+    --pdf                   Generate PDF from HTML (requires HTML-to-PDF converter)
+    --skip-pdf              Skip PDF generation (default: PDF is optional)
     
     Quick Options:
     --analysis-only         Run only AI analysis (skips extract, compress, context)
@@ -76,20 +100,14 @@ Options:
     --no-visuals            Run pipeline without visualizations
 
 Examples:
-    # Full pipeline (auto-detects schema in original/)
+    # Full pipeline with interactive framework selection
     $0
     
-    # Full pipeline with specific file
-    $0 path/to/custom_schema.sql
+    # Run analysis with specific frameworks
+    $0 --frameworks gdpr hipaa
     
-    # Analysis only (uses processed files)
-    $0 --analysis-only
-    
-    # Pipeline without visualizations
-    $0 --no-visuals
-    
-    # Resume from compression step
-    $0 --skip-extract
+    # List available frameworks
+    $0 --list-frameworks
 
 Requirements:
     - Exactly one .sql file must exist in original/ directory
@@ -156,8 +174,8 @@ check_prerequisites() {
     print_status "Checking prerequisites..."
     
     # Check Python
-    if ! command -v python3 &> /dev/null; then
-        print_error "python3 is required but not installed"
+    if ! command -v ./.venv/bin/python &> /dev/null; then
+        print_error "python3 in .venv is required but not installed"
         exit 1
     fi
     
@@ -167,9 +185,9 @@ check_prerequisites() {
     fi
     
     # Check required Python packages
-    local required_packages=("langchain" "langchain_google_genai" "dotenv")
+    local required_packages=("langchain" "langchain_google_genai" "dotenv" "questionary")
     for package in "${required_packages[@]}"; do
-        if ! python3 -c "import $package" &> /dev/null; then
+        if ! ./.venv/bin/python -c "import $package" &> /dev/null; then
             print_error "Python package '$package' is required but not installed"
             print_error "Run: pip install -r requirements.txt"
             exit 1
@@ -180,7 +198,7 @@ check_prerequisites() {
     if [[ "$SKIP_VISUALIZATIONS" == false || "$SKIP_DIAGRAMS" == false ]]; then
         local viz_packages=("matplotlib" "seaborn" "networkx" "pandas" "numpy")
         for package in "${viz_packages[@]}"; do
-            if ! python3 -c "import $package" &> /dev/null; then
+            if ! ./.venv/bin/python -c "import $package" &> /dev/null; then
                 print_error "Visualization package '$package' is required but not installed"
                 print_error "Run: pip install -r requirements.txt"
                 exit 1
@@ -243,13 +261,13 @@ run_script() {
     print_status "Arguments: ${args[*]}"
     
     if [[ "$VERBOSE" == true ]]; then
-        print_status "Full command: python3 scripts/$script_name ${args[*]}"
+        print_status "Full command: ./.venv/bin/python scripts/$script_name ${args[*]}"
     fi
     
     print_status "Starting execution..."
     local start_time=$(date +%s)
     
-    if python3 "scripts/$script_name" "${args[@]}"; then
+    if ./.venv/bin/python "scripts/$script_name" "${args[@]}"; then
         local end_time=$(date +%s)
         local duration=$((end_time - start_time))
         print_success "$description completed successfully"
@@ -328,13 +346,22 @@ run_script() {
                     fi
                 fi
                 ;;
-            "08_generate_pdf.py")
+            "08_generate_html.py")
+                # Find the generated HTML file
+                local html_file=$(ls output/final_report.html output/*_report.html 2>/dev/null | head -1)
+                if [[ -n "$html_file" ]]; then
+                    local size=$(du -h "$html_file" | cut -f1)
+                    print_status "Generated: $html_file ($size)"
+                    print_status "Interactive HTML report ready - open in browser!"
+                fi
+                ;;
+            "09_html_to_pdf.py")
                 # Find the generated PDF file (handles multiple naming patterns)
-                local pdf_file=$(ls output/wtfk_report_*.pdf output/final_report.pdf output/*_report.pdf 2>/dev/null | head -1)
+                local pdf_file=$(ls output/final_report.pdf output/*_report.pdf 2>/dev/null | head -1)
                 if [[ -n "$pdf_file" ]]; then
                     local size=$(du -h "$pdf_file" | cut -f1)
                     print_status "Generated: $pdf_file ($size)"
-                    print_status "Professional PDF report ready for distribution!"
+                    print_status "PDF converted from HTML - perfect for printing!"
                 fi
                 ;;
         esac
@@ -353,6 +380,11 @@ show_pipeline_summary() {
     print_status "Pipeline Summary:"
     echo "  Input file: $INPUT_FILE"
     echo "  Settings file: $SETTINGS_FILE"
+    if [[ ${#FRAMEWORKS[@]} -gt 0 ]]; then
+        echo "  Compliance Frameworks: ${FRAMEWORKS[*]}"
+    else
+        echo "  Compliance Frameworks: Interactive selection"
+    fi
     echo "  Steps to run:"
     
     [[ "$SKIP_EXTRACT" == false ]] && echo "    ✓ Extract schema structure"
@@ -362,7 +394,8 @@ show_pipeline_summary() {
     [[ "$SKIP_VISUALIZATIONS" == false ]] && echo "    ✓ Plan visualizations"
     [[ "$SKIP_DIAGRAMS" == false ]] && echo "    ✓ Generate diagrams"
     [[ "$SKIP_FINAL_REPORT" == false ]] && echo "    ✓ Generate final report with integrated diagrams"
-    [[ "$SKIP_PDF" == false ]] && echo "    ✓ Generate PDF report"
+    [[ "$SKIP_HTML" == false ]] && echo "    ✓ Generate HTML report (primary format)"
+    [[ "$GENERATE_PDF" == true ]] && echo "    ✓ Convert HTML to PDF (optional)"
     
     echo ""
 }
@@ -387,7 +420,13 @@ show_results_summary() {
     # Show PDF report if it exists
     local pdf_file=$(ls output/wtfk_report_*.pdf output/final_report.pdf output/*_report.pdf 2>/dev/null | head -1)
     if [[ -n "$pdf_file" ]]; then
-        echo "  📚 $pdf_file"
+        echo "  ���� $pdf_file"
+    fi
+    
+    # Show HTML report if it exists
+    local html_file=$(ls output/final_report.html output/*_report.html 2>/dev/null | head -1)
+    if [[ -n "$html_file" ]]; then
+        echo "  🌐 $html_file"
     fi
     
     # Count diagrams
@@ -397,9 +436,19 @@ show_results_summary() {
     fi
     
     echo ""
-    # Show main deliverable (prioritize PDF, then final report, then analysis)
+    # Show main deliverable (prioritize HTML, then PDF, then final report, then analysis)
+    local html_file=$(ls output/final_report.html output/*_report.html 2>/dev/null | head -1)
     local pdf_file=$(ls output/wtfk_report_*.pdf output/final_report.pdf output/*_report.pdf 2>/dev/null | head -1)
-    if [[ -n "$pdf_file" ]]; then
+    
+    if [[ -n "$html_file" ]]; then
+        print_status "🌐 Main deliverable: $html_file (interactive HTML report)"
+        if [[ -n "$pdf_file" ]]; then
+            print_status "📚 Also available: $pdf_file (PDF for printing)"
+        fi
+        if [[ -f "output/final_report.md" ]]; then
+            print_status "📄 Source: output/final_report.md (markdown)"
+        fi
+    elif [[ -n "$pdf_file" ]]; then
         print_status "📚 Main deliverable: $pdf_file (professional PDF report)"
         if [[ -f "output/final_report.md" ]]; then
             print_status "📄 Also available: output/final_report.md (markdown source)"
@@ -431,6 +480,16 @@ while [[ $# -gt 0 ]]; do
             SETTINGS_FILE="$2"
             shift 2
             ;;
+        --frameworks)
+            shift
+            while [[ $# -gt 0 && ! $1 =~ ^-- ]]; do
+                FRAMEWORKS+=("$1")
+                shift
+            done
+            ;;
+        --list-frameworks)
+            list_frameworks
+            ;;
         --skip-extract)
             SKIP_EXTRACT=true
             shift
@@ -459,13 +518,17 @@ while [[ $# -gt 0 ]]; do
             SKIP_FINAL_REPORT=true
             shift
             ;;
+        --skip-html)
+            SKIP_HTML=true
+            shift
+            ;;
+        --pdf)
+            GENERATE_PDF=true
+            shift
+            ;;
         --skip-pdf)
             SKIP_PDF=true
             shift
-            ;;
-        --pdf-style)
-            PDF_STYLE="$2"
-            shift 2
             ;;
         --analysis-only)
             SKIP_EXTRACT=true
@@ -487,6 +550,11 @@ while [[ $# -gt 0 ]]; do
         --no-visuals)
             SKIP_VISUALIZATIONS=true
             SKIP_DIAGRAMS=true
+            shift
+            ;;
+        --modern-web)
+            SKIP_PDF=true
+            SKIP_HTML=false
             shift
             ;;
         -*)
@@ -555,7 +623,32 @@ main() {
     
     # Step 4: AI-powered analysis
     if [[ "$SKIP_ANALYSIS" == false ]]; then
-        run_script "04_analyze_schema.py" "AI analysis" "schemas/schema_compressed.txt" "-s" "$SETTINGS_FILE"
+        # This step is now handled directly to allow for interactive input
+        echo ""
+        print_status "=========================================="
+        print_status "STEP: AI analysis"
+        print_status "=========================================="
+        
+        local analysis_args=("scripts/04_analyze_schema.py" "schemas/schema_compressed.txt" "-s" "$SETTINGS_FILE")
+        if [[ ${#FRAMEWORKS[@]} -gt 0 ]]; then
+            analysis_args+=("--frameworks" "${FRAMEWORKS[@]}")
+        fi
+
+        print_status "Starting execution..."
+        local start_time=$(date +%s)
+
+        # Execute python script directly to allow for interaction
+        if ./.venv/bin/python "${analysis_args[@]}"; then
+            local end_time=$(date +%s)
+            local duration=$((end_time - start_time))
+            print_success "AI analysis completed successfully"
+            print_status "Execution time: ${duration} seconds"
+        else
+            local end_time=$(date +%s)
+            local duration=$((end_time - start_time))
+            print_error "AI analysis failed after ${duration} seconds"
+            exit 1
+        fi
     else
         print_status "Skipping AI analysis (using existing schema_analysis.md)"
     fi
@@ -590,27 +683,32 @@ main() {
         print_status "Skipping final report generation"
     fi
     
-    # Step 8: Generate PDF report
-    if [[ "$SKIP_PDF" == false ]]; then
+    # Step 8: Generate HTML report (primary format)
+    if [[ "$SKIP_HTML" == false ]]; then
         # Check for final report first, then fallback to analysis report
         if [[ -f "output/final_report.md" ]]; then
-            if [[ -n "$PDF_STYLE" ]]; then
-                run_script "08_generate_pdf.py" "PDF generation" "output/final_report.md" "--settings" "$SETTINGS_FILE" "--style" "$PDF_STYLE"
-            else
-                run_script "08_generate_pdf.py" "PDF generation" "output/final_report.md" "--settings" "$SETTINGS_FILE"
-            fi
+            run_script "08_generate_html.py" "HTML generation" "output/final_report.md" "--settings" "$SETTINGS_FILE"
         elif ls output/schema_analysis*.md 1> /dev/null 2>&1; then
             local analysis_file=$(ls output/schema_analysis*.md 2>/dev/null | head -1)
-            if [[ -n "$PDF_STYLE" ]]; then
-                run_script "08_generate_pdf.py" "PDF generation" "$analysis_file" "--settings" "$SETTINGS_FILE" "--style" "$PDF_STYLE"
-            else
-                run_script "08_generate_pdf.py" "PDF generation" "$analysis_file" "--settings" "$SETTINGS_FILE"
-            fi
+            run_script "08_generate_html.py" "HTML generation" "$analysis_file" "--settings" "$SETTINGS_FILE"
         else
-            print_warning "Skipping PDF generation (no markdown report found)"
+            print_warning "Skipping HTML generation (no markdown report found)"
         fi
     else
-        print_status "Skipping PDF generation"
+        print_status "Skipping HTML generation"
+    fi
+    
+    # Step 9: Convert HTML to PDF (optional)
+    if [[ "$GENERATE_PDF" == true && "$SKIP_PDF" == false ]]; then
+        # Find the generated HTML file
+        local html_file=$(ls output/final_report.html output/*_report.html 2>/dev/null | head -1)
+        if [[ -n "$html_file" ]]; then
+            run_script "09_html_to_pdf.py" "HTML to PDF conversion" "$html_file" "--settings" "$SETTINGS_FILE"
+        else
+            print_warning "Skipping PDF conversion (no HTML report found)"
+        fi
+    else
+        print_status "Skipping PDF generation (use --pdf to enable)"
     fi
     
     echo ""

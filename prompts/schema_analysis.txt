@@ -203,9 +203,10 @@ Provide detailed analysis in the following categories:
 - Webhook/event handling without proper retry/failure mechanisms
 - Data synchronization challenges between systems
 
-### 11B. Development Team Action Plan
+### 12. Development Team Action Plan
 
 Organize the above issues into a prioritized roadmap for development teams:
+(Do not limit to 3 per section, instead provide as many as you think is reasonable)
 
 **Immediate Actions (Weeks 1-4)**
 - Critical performance fixes that can be implemented quickly
@@ -235,6 +236,10 @@ For each recommendation, provide:
 - Business impact if not addressed
 - Potential risks of implementation
 - Dependencies on other improvements
+
+### 13. Developer Velocity
+- For the items above, highlight which ones will impact developer velocity the most
+- Explain why for each one, and what the cost and benefit is
 
 
 ## Output Format:

@@ -79,72 +79,24 @@
   },
   "pdf_generation": {
     "enable_generation": true,
-    "engine": "pandoc",
-    "style": "business",
+    "method": "weasyprint",
+    "style": "business"
+  },
+  "html_generation": {
+    "enable_generation": true,
+    "theme": "modern",
     "include_toc": true,
-    "toc_depth": 3,
-    "number_sections": true,
-    "highlight_style": "pygments",
-    "page_break_before": ["# Executive Summary", "# Domain Analysis", "# Performance Analysis", "# Security Analysis"],
-    "styles": {
-      "business": {
-        "description": "Professional business report style",
-        "geometry": "margin=0.75in",
-        "fontsize": "12pt",
-        "documentclass": "report",
-        "classoption": "oneside",
-        "colorlinks": true,
-        "linkcolor": "blue",
-        "urlcolor": "blue",
-        "toccolor": "black"
-      },
-      "executive": {
-        "description": "Executive summary style with larger fonts",
-        "geometry": "margin=1in",
-        "fontsize": "14pt",
-        "documentclass": "article",
-        "classoption": "onecolumn",
-        "colorlinks": true,
-        "linkcolor": "blue",
-        "urlcolor": "blue",
-        "toccolor": "black"
-      },
-      "technical": {
-        "description": "Technical documentation style",
-        "geometry": "margin=1in",
-        "fontsize": "11pt",
-        "documentclass": "article",
-        "classoption": "twoside",
-        "colorlinks": true,
-        "linkcolor": "red",
-        "urlcolor": "red",
-        "toccolor": "black"
-      },
-      "modern": {
-        "description": "Modern clean design",
-        "geometry": "margin=0.8in",
-        "fontsize": "11pt",
-        "documentclass": "article",
-        "classoption": "oneside",
-        "colorlinks": true,
-        "linkcolor": "teal",
-        "urlcolor": "teal",
-        "toccolor": "black"
-      },
-      "minimal": {
-        "description": "Clean minimal style",
-        "geometry": "margin=1.2in",
-        "fontsize": "12pt",
-        "documentclass": "article",
-        "classoption": "onecolumn",
-        "mainfont": "Times New Roman",
-        "sansfont": "Helvetica",
-        "monofont": "Courier",
-        "colorlinks": false,
-        "linkcolor": "black",
-        "urlcolor": "black",
-        "toccolor": "black"
-      }
+    "interactive_diagrams": true,
+    "search_enabled": true,
+    "mobile_responsive": true,
+    "table_name_styling": {
+      "background": "linear-gradient(135deg, #e74c3c, #c0392b)",
+      "color": "white",
+      "font_weight": "bold"
     }
+  },
+  "performance": {
+    "max_workers_categorization": 20,
+    "max_workers_explanations": 20
   }
 } 

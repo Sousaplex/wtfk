@@ -128,24 +128,21 @@ def extract_schema(input_file, output_file):
     in_copy_block = False
     in_insert_block = False
     total_lines = len(lines)
-    kept_lines = 0
     
     print(f"Processing {total_lines} lines...")
     
     for i, line in enumerate(lines):
         line_stripped = line.strip().upper()
         
-        # Handle COPY blocks (PostgreSQL bulk data)
         if line_stripped.startswith('COPY '):
             in_copy_block = True
             continue
         
         if in_copy_block:
-            if line_stripped == '\\.':  # End of COPY block
+            if line_stripped == '\\.':
                 in_copy_block = False
             continue
         
-        # Handle multi-line INSERT statements
         if line_stripped.startswith('INSERT INTO'):
             in_insert_block = True
             continue
@@ -155,27 +152,26 @@ def extract_schema(input_file, output_file):
                 in_insert_block = False
             continue
         
-        # Skip obvious data lines
         if is_insert_statement(line):
             continue
         
-        # Keep all other lines (schema statements, comments, etc.)
         schema_lines.append(line)
-        kept_lines += 1
         
-        # Progress indicator
-        if i % 1000 == 0:
+        if i > 0 and i % 5000 == 0:
             print(f"Processed {i}/{total_lines} lines...")
     
-    # Write the schema to output file
     try:
         with open(output_file, 'w', encoding='utf-8') as outfile:
             outfile.writelines(schema_lines)
         
+        # Count tables in the output
+        table_count = sum(1 for line in schema_lines if line.strip().upper().startswith('CREATE TABLE'))
+        
         print(f"Schema extraction complete!")
-        print(f"Original file: {total_lines} lines")
-        print(f"Schema file: {kept_lines} lines")
-        print(f"Reduction: {((total_lines - kept_lines) / total_lines * 100):.1f}%")
+        print(f"  - Original file: {total_lines} lines")
+        print(f"  - Schema file: {len(schema_lines)} lines")
+        print(f"  - Reduction: {((total_lines - len(schema_lines)) / total_lines * 100):.1f}%")
+        print(f"  - Tables Found: {table_count}")
         
         return True
         

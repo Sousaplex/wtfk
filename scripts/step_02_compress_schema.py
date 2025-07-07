@@ -365,6 +365,48 @@ class SchemaCompressor:
         return '\n'.join(output)
 
 
+def compress_schema(input_file, output_file, debug=False):
+    """
+    Reads a schema file, compresses it, and writes to the output file.
+    Returns True on success, False on failure.
+    """
+    print(f"Reading schema from: {input_file}")
+    print(f"Writing compressed schema to: {output_file}")
+    
+    try:
+        with open(input_file, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+    except Exception as e:
+        print(f"Error reading input file: {e}")
+        return False
+    
+    # Parse and compress
+    compressor = SchemaCompressor(debug=debug)
+    compressor.parse_schema(lines)
+    compressed_schema = compressor.generate_compressed_schema()
+    
+    # Write output
+    try:
+        with open(output_file, 'w', encoding='utf-8') as f:
+            f.write(compressed_schema)
+        
+        # Calculate stats from the compressed output
+        table_count = len(compressor.tables)
+        column_count = sum(len(t['columns']) for t in compressor.tables.values())
+
+        print(f"Compression complete!")
+        print(f"  - Original file: {len(lines)} lines")
+        print(f"  - Compressed file: {len(compressed_schema.splitlines())} lines")
+        print(f"  - Compression ratio: {len(compressed_schema.splitlines()) / len(lines) * 100:.1f}%")
+        print(f"  - Tables Found: {table_count}")
+        print(f"  - Columns Found: {column_count}")
+        return True
+        
+    except Exception as e:
+        print(f"Error writing output file: {e}")
+        return False
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Compress PostgreSQL schema into hierarchical format"
@@ -375,7 +417,7 @@ def main():
     )
     parser.add_argument(
         "-o", "--output",
-        help="Output file path (default: input_file_compressed.txt)",
+        help="Output file path (default: schemas/schema_compressed.txt)",
         default=None
     )
     
@@ -393,33 +435,7 @@ def main():
         # Ensure schemas directory exists
         output_path.parent.mkdir(exist_ok=True)
     
-    print(f"Reading schema from: {input_path}")
-    print(f"Writing compressed schema to: {output_path}")
-    
-    try:
-        with open(input_path, 'r', encoding='utf-8') as f:
-            lines = f.readlines()
-    except Exception as e:
-        print(f"Error reading input file: {e}")
-        sys.exit(1)
-    
-    # Parse and compress
-    compressor = SchemaCompressor(debug=False)  # Set to True for debugging
-    compressor.parse_schema(lines)
-    compressed_schema = compressor.generate_compressed_schema()
-    
-    # Write output
-    try:
-        with open(output_path, 'w', encoding='utf-8') as f:
-            f.write(compressed_schema)
-        
-        print(f"Compression complete!")
-        print(f"Original file: {len(lines)} lines")
-        print(f"Compressed file: {len(compressed_schema.splitlines())} lines")
-        print(f"Compression ratio: {len(compressed_schema.splitlines()) / len(lines) * 100:.1f}%")
-        
-    except Exception as e:
-        print(f"Error writing output file: {e}")
+    if not compress_schema(input_path, output_path):
         sys.exit(1)
 
 
